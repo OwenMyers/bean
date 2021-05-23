@@ -10,6 +10,9 @@ from time import sleep
 IM_WIDTH = 640
 IM_HEIGHT = 480
 
+NO_MOVEMENT_BUFF_PERCENT_HEIGHT = 50
+NO_MOVEMENT_BUFF_PERCENT_WIDTH = 50
+
 
 def main():
     gpio.setmode(gpio.BCM)
@@ -44,7 +47,26 @@ def main():
         (min_val, max_val, min_loc, max_loc) = cv2.minMaxLoc(frame_gray)
 
         cv2.circle(original, max_loc, 10, (255, 0, 0), 2)
-        cv2.putText(frame, "FPS: {0:.2f}".format(frame_rate_calc), (30, 50), font, 1, (255, 255, 0), 2, cv2.LINE_AA)
+        import pdb; pdb.set_trace()
+        # frame looks like [HEIGHT, WIDTH, ___]
+        # if outside in positive x direction trigger positive x pin
+        # otherwise set the pin to off
+        # if outside in negative x direction trigger negative x pin
+        # otherwise set the pin to off
+        # if outside in positive y direction trigger positive y pin
+        # otherwise set the pin to off
+        # if outside in netative y direction trigger negative y pin
+        # otherwise set the pin to off
+        cv2.putText(
+            frame,
+            "FPS: {0:.2f}".format(frame_rate_calc),
+            (30, 50),
+            font,
+            1,
+            (255, 255, 0),
+            2,
+            cv2.LINE_AA
+        )
         cv2.imshow('Object detector', original)
 
         t2 = cv2.getTickCount()
@@ -70,4 +92,19 @@ if __name__ == '__main__':
     output_pin_y1 = 24
     # negative y movement
     output_pin_y2 = 23
+
+
+    center_x = IM_WIDTH/2
+    center_y = IM_HEIGHT/2
+
+    x_positive_buff = center_x + center_x * float(NO_MOVEMENT_BUFF_PERCENT_WIDTH) / 100.0
+    x_negative_buff = center_x - center_x * float(NO_MOVEMENT_BUFF_PERCENT_WIDTH) / 100.0
+    x_positive_buff = round(x_positive_buff)
+    x_negative_buff = round(x_negative_buff)
+
+    y_positive_buff = center_y + center_y * float(NO_MOVEMENT_BUFF_PERCENT_HEIGHT) / 100.0
+    y_negative_buff = center_y - center_y * float(NO_MOVEMENT_BUFF_PERCENT_HEIGHT) / 100.0
+    y_positive_buff = round(y_positive_buff)
+    y_negative_buff = round(y_negative_buff)
+
     main()
