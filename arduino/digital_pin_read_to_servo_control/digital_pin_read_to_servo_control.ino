@@ -11,7 +11,6 @@ void setup() {
   pinMode(pi_pin, INPUT);
   myservo.attach(9);
   Serial.println("Starting...\n");
-
 }
 
 void loop() {
@@ -30,5 +29,4 @@ void loop() {
     state = 1;
   }
   delay(1000);
-
 }
