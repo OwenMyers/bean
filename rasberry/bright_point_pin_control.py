@@ -1,46 +1,34 @@
-import os
 import cv2
 import numpy as np
 from picamera.array import PiRGBArray
 from picamera import PiCamera
-import argparse
-import sys
 import RPi.GPIO as gpio
 from time import sleep
-
-led_pin = 21
-
-gpio.setmode(gpio.BCM)
-gpio.setup(led_pin, gpio.OUT)
-gpio.output(led_pin, 1)
 
 #IM_WIDTH = 1280
 #IM_HEIGHT = 720
 IM_WIDTH = 640
 IM_HEIGHT = 480
 
-
-camera_type = 'picamera'
-parser = argparse.ArgumentParser()
-parser.add_argument('--usbcam', help='Use a USB webcam instead of picamera',
-                    action='store_true')
-args = parser.parse_args()
-if args.usbcam:
-    camera_type = 'usb'
+NO_MOVEMENT_BUFF_PERCENT_HEIGHT = 50
+NO_MOVEMENT_BUFF_PERCENT_WIDTH = 50
 
 
-# sys.path.append('..')
+def main():
+    gpio.setmode(gpio.BCM)
+    gpio.setup(output_pin_x1, gpio.OUT)
+    gpio.setup(output_pin_x2, gpio.OUT)
+    gpio.setup(output_pin_y1, gpio.OUT)
+    gpio.setup(output_pin_y2, gpio.OUT)
+    gpio.output(output_pin_x1, 0)
+    gpio.output(output_pin_x2, 0)
+    gpio.output(output_pin_y1, 0)
+    gpio.output(output_pin_y2, 0)
 
+    frame_rate_calc = 1
+    freq = cv2.getTickFrequency()
+    font = cv2.FONT_HERSHEY_SIMPLEX
 
-from utils import visualization_utils as vis_util
-
-CWD_PATH = os.getcwd()
-
-frame_rate_calc = 1
-freq = cv2.getTickFrequency()
-font = cv2.FONT_HERSHEY_SIMPLEX
-
-if camera_type == 'picamera':
     # Initialize Picamera and grab reference to the raw capture
     camera = PiCamera()
     camera.resolution = (IM_WIDTH, IM_HEIGHT)
@@ -57,24 +45,55 @@ if camera_type == 'picamera':
         frame.setflags(write=1)
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         frame_expanded = np.expand_dims(frame_gray, axis=0)
-        
+
         gaussian_blur = cv2.GaussianBlur(frame_gray, (5, 5), 0)
         (min_val, max_val, min_loc, max_loc) = cv2.minMaxLoc(frame_gray)
 
         cv2.circle(original, max_loc, 10, (255, 0, 0), 2)
+        # frame looks like [HEIGHT, WIDTH, ___]
+        # max_loc looks like [horizontal, vertical] (i.e. width, height)
+        # if outside in positive x direction trigger positive x pin
+        if max_loc[0] > x_positive_buff:
+            gpio.output(output_pin_x2, 0)
+            gpio.output(output_pin_x1, 1)
+        # otherwise set the pin to off
+        else:
+            gpio.output(output_pin_x1, 0)
 
-        #vis_util.visualize_boxes_and_labels_on_image_array(
-        #    frame,
-        #    np.squeeze(boxes),
-        #    np.squeeze(classes).astype(np.int32),
-        #    np.squeeze(scores),
-        #    category_index,
-        #    use_normalized_coordinates=True,
-        #    line_thickness=8,
-        #    min_score_thresh=0.40)
+        # if outside in negative x direction trigger negative x pin
+        if max_loc[0] < x_negative_buff:
+            gpio.output(output_pin_x1, 0)
+            gpio.output(output_pin_x2, 1)
+        # otherwise set the pin to off
+        else:
+            gpio.output(output_pin_x2, 0)
 
-        cv2.putText(frame, "FPS: {0:.2f}".format(frame_rate_calc), (30, 50), font, 1, (255, 255, 0), 2, cv2.LINE_AA)
+        # if outside in positive y direction trigger positive y pin
+        if max_loc[1] > y_positive_buff:
+            gpio.output(output_pin_y2, 0)
+            gpio.output(output_pin_y1, 1)
+        # otherwise set the pin to off
+        else:
+            gpio.output(output_pin_y1, 0)
 
+        # if outside in netative y direction trigger negative y pin
+        if max_loc[1] < y_negative_buff:
+            gpio.output(output_pin_y1, 0)
+            gpio.output(output_pin_y2, 1)
+        # otherwise set the pin to off
+        else:
+            gpio.output(output_pin_y2, 0)
+
+        cv2.putText(
+            frame,
+            "FPS: {0:.2f}".format(frame_rate_calc),
+            (30, 50),
+            font,
+            1,
+            (255, 255, 0),
+            2,
+            cv2.LINE_AA
+        )
         cv2.imshow('Object detector', original)
 
         t2 = cv2.getTickCount()
@@ -86,8 +105,37 @@ if camera_type == 'picamera':
 
         rawCapture.truncate(0)
 
+        if cv2.waitKey(1) == ord('q'):
+            break
+
     camera.close()
-
     camera.release()
+    gpio.cleanup()
 
-cv2.destroyAllWindows()
+    cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    # positive x movement
+    output_pin_x1 = 21
+    # negative x movement
+    output_pin_x2 = 20
+    # positive y movement
+    output_pin_y1 = 24
+    # negative y movement
+    output_pin_y2 = 23
+
+
+    center_x = IM_WIDTH/2
+    center_y = IM_HEIGHT/2
+
+    x_positive_buff = center_x + center_x * float(NO_MOVEMENT_BUFF_PERCENT_WIDTH) / 100.0
+    x_negative_buff = center_x - center_x * float(NO_MOVEMENT_BUFF_PERCENT_WIDTH) / 100.0
+    x_positive_buff = round(x_positive_buff)
+    x_negative_buff = round(x_negative_buff)
+
+    y_positive_buff = center_y + center_y * float(NO_MOVEMENT_BUFF_PERCENT_HEIGHT) / 100.0
+    y_negative_buff = center_y - center_y * float(NO_MOVEMENT_BUFF_PERCENT_HEIGHT) / 100.0
+    y_positive_buff = round(y_positive_buff)
+    y_negative_buff = round(y_negative_buff)
+
+    main()
