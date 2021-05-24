@@ -20,7 +20,10 @@ def main():
     gpio.setup(output_pin_x2, gpio.OUT)
     gpio.setup(output_pin_y1, gpio.OUT)
     gpio.setup(output_pin_y2, gpio.OUT)
-    #gpio.output(output_pin_x1, 1)
+    gpio.output(output_pin_x1, 0)
+    gpio.output(output_pin_x2, 0)
+    gpio.output(output_pin_y1, 0)
+    gpio.output(output_pin_y2, 0)
 
     frame_rate_calc = 1
     freq = cv2.getTickFrequency()
@@ -47,16 +50,40 @@ def main():
         (min_val, max_val, min_loc, max_loc) = cv2.minMaxLoc(frame_gray)
 
         cv2.circle(original, max_loc, 10, (255, 0, 0), 2)
-        import pdb; pdb.set_trace()
         # frame looks like [HEIGHT, WIDTH, ___]
+        # max_loc looks like [horizontal, vertical] (i.e. width, height)
         # if outside in positive x direction trigger positive x pin
+        if max_loc[0] > x_positive_buff:
+            gpio.output(output_pin_x2, 0)
+            gpio.output(output_pin_x1, 1)
         # otherwise set the pin to off
+        else:
+            gpio.output(output_pin_x1, 0)
+
         # if outside in negative x direction trigger negative x pin
+        if max_loc[0] < x_negative_buff:
+            gpio.output(output_pin_x1, 0)
+            gpio.output(output_pin_x2, 1)
         # otherwise set the pin to off
+        else:
+            gpio.output(output_pin_x2, 0)
+
         # if outside in positive y direction trigger positive y pin
+        if max_loc[1] > y_positive_buff:
+            gpio.output(output_pin_y2, 0)
+            gpio.output(output_pin_y1, 1)
         # otherwise set the pin to off
+        else:
+            gpio.output(output_pin_y1, 0)
+
         # if outside in netative y direction trigger negative y pin
+        if max_loc[1] < y_negative_buff:
+            gpio.output(output_pin_y1, 0)
+            gpio.output(output_pin_y2, 1)
         # otherwise set the pin to off
+        else:
+            gpio.output(output_pin_y2, 0)
+
         cv2.putText(
             frame,
             "FPS: {0:.2f}".format(frame_rate_calc),
@@ -78,8 +105,12 @@ def main():
 
         rawCapture.truncate(0)
 
-        camera.close()
-        camera.release()
+        if cv2.waitKey(1) == ord('q'):
+            break
+
+    camera.close()
+    camera.release()
+    gpio.cleanup()
 
     cv2.destroyAllWindows()
 
