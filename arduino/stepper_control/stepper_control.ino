@@ -15,7 +15,7 @@ void loop() {
   // put your main code here, to run repeatedly:
   if (val < 6) {
      delay(500);
-     stepper.step(-10000); 
+     stepper.step(10000); 
      val += 1;
   }
 }
